@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileMaker Clocklet Control</title>
+    <style>
+        /* Embedded Clocklet CSS - Minimal version for standalone use */
+        .clocklet-container,
+        .clocklet,
+        .clocklet-plate,
+        .clocklet-dial,
+        .clocklet-hand,
+        .clocklet-hand-origin,
+        .clocklet-tick {
+            touch-action: manipulation;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+            position: absolute;
+            font-size: inherit;
+        }
+
+        .clocklet-container {
+            position: static;
+            display: block;
+            width: auto;
+            height: auto;
+        }
+
+        .clocklet {
+            position: relative;
+            font-size: 16px;
+            width: 270px;
+            height: 270px;
+            margin: 8px auto;
+            padding: 8px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+            background-color: #eee;
+            box-shadow: 2px 2px 8px rgba(128,128,128,0.3);
+        }
+
+        .clocklet-plate {
+            position: relative;
+            height: 100%;
+            border-radius: 50%;
+            background-color: #fff;
+        }
+
+        .clocklet-dial {
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            margin: auto;
+            border-radius: 50%;
+        }
+
+        .clocklet-hand,
+        .clocklet-tick,
+        .clocklet-hand-origin {
+            z-index: 1;
+        }
+
+        .clocklet-hand {
+            left: 0;
+            top: 6.4%;
+            right: 0;
+            bottom: 50%;
+            margin: auto;
+            transform-origin: 50% 100%;
+            background-color: #a1ddff;
+        }
+
+        .clocklet-tick {
+            width: 1.75em;
+            height: 1.75em;
+            margin: -0.875em;
+            border-radius: 50%;
+            padding: 0;
+            outline: 0;
+            border: 0;
+            cursor: pointer;
+            background-color: transparent;
+            color: inherit;
+            font-family: inherit;
+            font-weight: inherit;
+        }
+
+        .clocklet-tick::before {
+            content: attr(data-clocklet-tick-value);
+        }
+
+        .clocklet-tick--selected {
+            background-color: #57c2ff;
+            color: #fff;
+        }
+
+        .clocklet-tick:hover {
+            background-color: #7ccfff;
+        }
+
+        .clocklet-hand-origin {
+            left: calc(50% - 5px);
+            top: calc(50% - 5px);
+            right: calc(50% - 5px);
+            bottom: calc(50% - 5px);
+            border-radius: 50%;
+            background-color: #4bf;
+        }
+
+        .clocklet-dial--hour {
+            width: calc(40% + 56px);
+            height: calc(40% + 56px);
+        }
+
+        .clocklet-hand--hour {
+            width: 8px;
+        }
+
+        .clocklet-tick--hour[data-clocklet-tick-value="0"]::before {
+            content: "12";
+        }
+
+        .clocklet-dial--minute {
+            width: 100%;
+            height: 100%;
+        }
+
+        .clocklet-hand--minute {
+            width: 2px;
+        }
+
+        /* Time display */
+        .time-display {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="time-display" id="timeDisplay">12:00</div>
+    
+    <div class="clocklet-container">
+        <div class="clocklet" id="clocklet">
+            <div class="clocklet-plate">
+                <div class="clocklet-dial clocklet-dial--minute">
+                    <div class="clocklet-hand clocklet-hand--minute"></div>
+                    <!-- Quarter hour ticks: 0, 15, 30, 45 -->
+                    <button class="clocklet-tick clocklet-tick--minute" type="button" data-clocklet-tick-value="0" style="left:50%;top:11%"></button>
+                    <button class="clocklet-tick clocklet-tick--minute" type="button" data-clocklet-tick-value="15" style="left:89%;top:50%"></button>
+                    <button class="clocklet-tick clocklet-tick--minute" type="button" data-clocklet-tick-value="30" style="left:50%;top:89%"></button>
+                    <button class="clocklet-tick clocklet-tick--minute" type="button" data-clocklet-tick-value="45" style="left:11%;top:50%"></button>
+                </div>
+                <div class="clocklet-dial clocklet-dial--hour">
+                    <div class="clocklet-hand clocklet-hand--hour"></div>
+                    <!-- Hour ticks: 0-11 (12, 1, 2, ..., 11) -->
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="0" style="left:50%;top:16.2%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="1" style="left:69.5%;top:19.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="2" style="left:83.8%;top:30.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="3" style="left:89%;top:50%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="4" style="left:83.8%;top:69.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="5" style="left:69.5%;top:80.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="6" style="left:50%;top:83.8%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="7" style="left:30.5%;top:80.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="8" style="left:16.2%;top:69.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="9" style="left:11%;top:50%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="10" style="left:16.2%;top:30.5%"></button>
+                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="11" style="left:30.5%;top:19.5%"></button>
+                </div>
+                <div class="clocklet-hand-origin"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // FileMaker Clocklet Control
+        class FileMakerClocklet {
+            constructor() {
+                this.currentHour = 12;
+                this.currentMinute = 0;
+                this.dragging = false;
+                
+                this.hourHand = document.querySelector('.clocklet-hand--hour');
+                this.minuteHand = document.querySelector('.clocklet-hand--minute');
+                this.timeDisplay = document.getElementById('timeDisplay');
+                
+                this.initializeEventListeners();
+                this.updateDisplay();
+            }
+            
+            initializeEventListeners() {
+                // Hour tick listeners
+                document.querySelectorAll('.clocklet-tick--hour').forEach(tick => {
+                    tick.addEventListener('click', (e) => {
+                        const hourValue = parseInt(e.target.getAttribute('data-clocklet-tick-value'));
+                        this.setHour(hourValue);
+                    });
+                });
+                
+                // Minute tick listeners
+                document.querySelectorAll('.clocklet-tick--minute').forEach(tick => {
+                    tick.addEventListener('click', (e) => {
+                        const minuteValue = parseInt(e.target.getAttribute('data-clocklet-tick-value'));
+                        this.setMinute(minuteValue);
+                    });
+                });
+                
+                // Drag support for continuous adjustment
+                this.initializeDragSupport();
+            }
+            
+            initializeDragSupport() {
+                const clocklet = document.getElementById('clocklet');
+                
+                clocklet.addEventListener('mousedown', (e) => this.startDrag(e));
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('mouseup', () => this.endDrag());
+                
+                // Touch support
+                clocklet.addEventListener('touchstart', (e) => this.startDrag(e.touches[0]));
+                document.addEventListener('touchmove', (e) => this.drag(e.touches[0]));
+                document.addEventListener('touchend', () => this.endDrag());
+            }
+            
+            startDrag(event) {
+                this.dragging = true;
+                this.handleDrag(event);
+            }
+            
+            drag(event) {
+                if (!this.dragging) return;
+                this.handleDrag(event);
+            }
+            
+            endDrag() {
+                this.dragging = false;
+            }
+            
+            handleDrag(event) {
+                const clocklet = document.getElementById('clocklet');
+                const rect = clocklet.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                const x = event.clientX - centerX;
+                const y = event.clientY - centerY;
+                const angle = Math.atan2(y, x);
+                const degrees = (angle * 180 / Math.PI + 90 + 360) % 360;
+                
+                // Determine if closer to hour or minute dial
+                const distance = Math.sqrt(x * x + y * y);
+                const hourDialRadius = rect.width * 0.25;
+                const minuteDialRadius = rect.width * 0.4;
+                
+                if (distance < hourDialRadius) {
+                    // Hour adjustment
+                    const hourValue = Math.round(degrees / 30) % 12;
+                    this.setHour(hourValue);
+                } else if (distance < minuteDialRadius) {
+                    // Minute adjustment (snap to quarters)
+                    const minuteValue = Math.round(degrees / 90) * 15;
+                    this.setMinute(minuteValue % 60);
+                }
+            }
+            
+            setHour(hourValue) {
+                // Convert dial position to 24-hour working hours (7am-6pm)
+                this.currentHour = this.convertTo24Hour(hourValue);
+                this.updateDisplay();
+                this.updateHands();
+                this.notifyFileMaker();
+            }
+            
+            setMinute(minuteValue) {
+                this.currentMinute = minuteValue;
+                this.updateDisplay();
+                this.updateHands();
+                this.notifyFileMaker();
+            }
+            
+            convertTo24Hour(hour) {
+                // Working hours focus: 7am-6pm
+                if (hour === 0) {
+                    return 12; // 12 o'clock position = 12:00 (noon)
+                } else if (hour >= 1 && hour <= 6) {
+                    return hour + 12; // 1-6 o'clock = 13:00-18:00 (1pm-6pm)
+                } else if (hour >= 7 && hour <= 11) {
+                    return hour; // 7-11 o'clock = 07:00-11:00 (7am-11am)
+                }
+                return hour;
+            }
+            
+            updateDisplay() {
+                const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
+                this.timeDisplay.textContent = timeString;
+            }
+            
+            updateHands() {
+                // Update hour hand
+                const hourAngle = (this.currentHour % 12) * 30 + (this.currentMinute / 60) * 30;
+                this.hourHand.style.transform = `rotate(${hourAngle}deg)`;
+                
+                // Update minute hand
+                const minuteAngle = this.currentMinute * 6;
+                this.minuteHand.style.transform = `rotate(${minuteAngle}deg)`;
+                
+                // Update selected ticks
+                this.updateSelectedTicks();
+            }
+            
+            updateSelectedTicks() {
+                // Clear previous selections
+                document.querySelectorAll('.clocklet-tick--selected').forEach(tick => {
+                    tick.classList.remove('clocklet-tick--selected');
+                });
+                
+                // Highlight current hour tick
+                const hourDialValue = this.currentHour <= 12 ? (this.currentHour === 12 ? 0 : this.currentHour) : this.currentHour - 12;
+                const hourTick = document.querySelector(`[data-clocklet-tick-value="${hourDialValue}"].clocklet-tick--hour`);
+                if (hourTick) hourTick.classList.add('clocklet-tick--selected');
+                
+                // Highlight current minute tick
+                const minuteTick = document.querySelector(`[data-clocklet-tick-value="${this.currentMinute}"].clocklet-tick--minute`);
+                if (minuteTick) minuteTick.classList.add('clocklet-tick--selected');
+            }
+            
+            notifyFileMaker() {
+                const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
+                
+                // FileMaker function call
+                try {
+                    // Method 1: FileMaker.PerformScript (FileMaker 19+)
+                    if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
+                        FileMaker.PerformScript('HandleTimeChange', timeString);
+                    }
+                    // Method 2: Legacy window.location approach
+                    else {
+                        window.location = `fmp://$/HandleTimeChange?time=${encodeURIComponent(timeString)}`;
+                    }
+                } catch (error) {
+                    console.log('FileMaker call failed, time value:', timeString);
+                }
+            }
+            
+            // Public method to set time from FileMaker
+            setTime(timeString) {
+                const [hours, minutes] = timeString.split(':').map(Number);
+                this.currentHour = hours;
+                this.currentMinute = minutes;
+                this.updateDisplay();
+                this.updateHands();
+            }
+        }
+        
+        // Initialize the control
+        const clocklet = new FileMakerClocklet();
+        
+        // Expose setTime method globally for FileMaker to call
+        window.setClockletTime = (timeString) => clocklet.setTime(timeString);
+    </script>
+</body>
+</html>
