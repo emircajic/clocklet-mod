@@ -6,7 +6,6 @@ export default class ClockletClock {
     plate: HTMLElement;
     hour: ClockletDial;
     minute: ClockletDial;
-    ampm: HTMLElement;
     defaultOptions: ClockletOptions;
     input: HTMLInputElement | undefined;
     dispatchesInputEvents: boolean | undefined;
