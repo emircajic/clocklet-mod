@@ -10,6 +10,7 @@ import { setClockletData, getClockletData } from './data'
 const coordinateProperties: (keyof CSSStyleDeclaration)[] = ['position', 'left', 'top', 'right', 'bottom', 'marginLeft', 'marginTop', 'marginRight', 'marginBottom']
 const hoverable = matchMedia('(hover: none)').matches
 
+<<<<<<< HEAD
 function convertTo24Hour(hour: number): number {
   // Working hours focus: 7am-6:59pm
   // Clock dial sends 0-11, where 0 = 12 o'clock position
@@ -27,6 +28,13 @@ function convertTo24Hour(hour: number): number {
   
   // Fallback (shouldn't reach here)
   return hour;
+=======
+function getAutoAmPm(hour: number): 'am' | 'pm' {
+  // 7-12 (7am-12pm) = AM, 12-7 (12pm-7am) = PM
+  // Convert 12-hour format to 24-hour for logic
+  if (hour === 0) hour = 12; // midnight = 12am
+  return (hour >= 7 && hour <= 12) ? 'am' : 'pm'
+>>>>>>> ae52ca647e45c3b738b9fa86a18fedc96daefc58
 }
 
 export default class ClockletClock {
@@ -180,6 +188,7 @@ export default class ClockletClock {
     
     const _time = typeof time === 'string'
       ? lenientime(time)
+<<<<<<< HEAD
       : (() => {
           if (time.a !== undefined) {
             // Explicit AM/PM provided
@@ -209,6 +218,14 @@ export default class ClockletClock {
           // Only minute changed, preserve existing time
           return lenientime(this.input.value).with({ m: time.m })
         })()
+=======
+      : lenientime(this.input.value).with(time.a !== undefined ? time : { 
+          h: time.h, 
+          m: time.m, 
+          a: time.h !== undefined ? getAutoAmPm(typeof time.h === 'string' ? parseInt(time.h) : time.h) : 
+             lenientime(this.input.value).valid ? lenientime(this.input.value).a : 'am'
+        })
+>>>>>>> ae52ca647e45c3b738b9fa86a18fedc96daefc58
     const template = getClockletData(this.root, 'format')!
     this.input.value = _time.format(template)
     if (this.input.type === 'text' && typeof time === 'object') {
