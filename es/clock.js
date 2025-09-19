@@ -8,6 +8,25 @@ import { findHourToken, findMinuteToken, findAmpmToken } from './token';
 import { setClockletData, getClockletData } from './data';
 var coordinateProperties = ['position', 'left', 'top', 'right', 'bottom', 'marginLeft', 'marginTop', 'marginRight', 'marginBottom'];
 var hoverable = matchMedia('(hover: none)').matches;
+function getAutoAmPm(hour) {
+    // Clock dial sends 0-11, where 0 = 12 o'clock position
+    // 7-12 (7am-12pm) = AM, 12-7 (12pm-7am) = PM
+    if (hour === 0)
+        hour = 12; // 12 o'clock position = 12
+    return (hour >= 7 && hour <= 12) ? 'am' : 'pm';
+}
+function convertTo24Hour(hour) {
+    // Convert 12-hour dial position (0-11) to 24-hour based on AM/PM logic
+    var ampm = getAutoAmPm(hour);
+    if (hour === 0)
+        hour = 12; // 12 o'clock position = 12
+    if (ampm === 'am') {
+        return hour === 12 ? 0 : hour; // 12am = 0, 1-11am = 1-11
+    }
+    else {
+        return hour === 12 ? 12 : hour + 12; // 12pm = 12, 1-11pm = 13-23
+    }
+}
 var ClockletClock = /** @class */ (function () {
     function ClockletClock(options) {
         var _this = this;
@@ -16,11 +35,9 @@ var ClockletClock = /** @class */ (function () {
         this.plate = this.root.firstElementChild;
         this.hour = new ClockletDial(this.plate.getElementsByClassName('clocklet-dial--hour')[0], 12, function (value) { return _this.value({ h: value }); });
         this.minute = new ClockletDial(this.plate.getElementsByClassName('clocklet-dial--minute')[0], 60, function (value) { return _this.value({ m: value }); });
-        this.ampm = this.plate.getElementsByClassName('clocklet-ampm')[0];
         this.defaultOptions = __assign(Object.create(defaultDefaultOptions), options);
         addEventListener('input', function (event) { return event.target === _this.input && _this.updateHighlight(); }, true);
         this.root.addEventListener('mousedown', function (event) { return event.preventDefault(); });
-        this.ampm.addEventListener('mousedown', function () { return _this.value({ a: getClockletData(_this.ampm, 'ampm') === 'pm' ? 'am' : 'pm' }); });
         this.root.addEventListener('clocklet.dragstart', function () { return _this.root.classList.add('clocklet--dragging'); });
         this.root.addEventListener('clocklet.dragend', function () { return _this.root.classList.remove('clocklet--dragging'); });
         var relocate = function () { return _this._relocate && _this._relocate(); };
@@ -149,13 +166,37 @@ var ClockletClock = /** @class */ (function () {
         return clock;
     };
     ClockletClock.prototype.value = function (time) {
+        var _this = this;
         if (!this.input) {
             return;
         }
         var oldValue = this.input.value;
+        var format = getClockletData(this.root, 'format');
+        var hasAmPmFormat = /[aA]/.test(format);
         var _time = typeof time === 'string'
             ? lenientime(time)
-            : lenientime(this.input.value).with(time.a !== undefined ? time : { h: time.h, m: time.m, a: getClockletData(this.ampm, 'ampm') });
+            : (function () {
+                if (time.a !== undefined) {
+                    // Explicit AM/PM provided
+                    return lenientime(_this.input.value).with(time);
+                }
+                if (time.h !== undefined) {
+                    var hourValue = typeof time.h === 'string' ? parseInt(time.h) : time.h;
+                    if (!hasAmPmFormat) {
+                        // 24-hour format - convert dial position to 24-hour
+                        var hour24 = convertTo24Hour(hourValue);
+                        return lenientime(_this.input.value).with({ h: hour24, m: time.m });
+                    }
+                    else {
+                        // 12-hour format with AM/PM - apply auto logic
+                        var timeObj = { h: time.h, m: time.m };
+                        timeObj.a = getAutoAmPm(hourValue);
+                        return lenientime(_this.input.value).with(timeObj);
+                    }
+                }
+                // Only minute changed, preserve existing time
+                return lenientime(_this.input.value).with({ m: time.m });
+            })();
         var template = getClockletData(this.root, 'format');
         this.input.value = _time.format(template);
         if (this.input.type === 'text' && typeof time === 'object') {
@@ -176,16 +217,12 @@ var ClockletClock = /** @class */ (function () {
             setClockletData(this.root, 'value', time.HHmm);
             this.hour.value(time.hour % 12);
             this.minute.value(time.minute);
-            setClockletData(this.ampm, 'ampm', time.a);
         }
         else {
             setClockletData(this.root, 'value', '');
             this.hour.value(-1);
             this.minute.value(-1);
-            setClockletData(this.ampm, 'ampm', 'am');
         }
-        var ampmToken = findAmpmToken(time.valid ? time : lenientime.ZERO, getClockletData(this.root, 'format'));
-        setClockletData(this.ampm, 'ampm-formatted', ampmToken && ampmToken.value || '');
     };
     return ClockletClock;
 }());

@@ -10,13 +10,31 @@ import { setClockletData, getClockletData } from './data'
 const coordinateProperties: (keyof CSSStyleDeclaration)[] = ['position', 'left', 'top', 'right', 'bottom', 'marginLeft', 'marginTop', 'marginRight', 'marginBottom']
 const hoverable = matchMedia('(hover: none)').matches
 
+function convertTo24Hour(hour: number): number {
+  // Working hours focus: 7am-6:59pm
+  // Clock dial sends 0-11, where 0 = 12 o'clock position
+  
+  if (hour === 0) {
+    // 12 o'clock position = 12:00 (noon)
+    return 12;
+  } else if (hour >= 1 && hour <= 6) {
+    // 1-6 o'clock positions = 13:00-18:00 (1pm-6pm)
+    return hour + 12;
+  } else if (hour >= 7 && hour <= 11) {
+    // 7-11 o'clock positions = 07:00-11:00 (7am-11am)
+    return hour;
+  }
+  
+  // Fallback (shouldn't reach here)
+  return hour;
+}
+
 export default class ClockletClock {
   container = createClockletElements()
   root      = this.container.firstElementChild as HTMLElement
   plate     = this.root.firstElementChild as HTMLElement
   hour      = new ClockletDial(this.plate.getElementsByClassName('clocklet-dial--hour')[0]   as HTMLElement, 12, value => this.value({ h: value }))
   minute    = new ClockletDial(this.plate.getElementsByClassName('clocklet-dial--minute')[0] as HTMLElement, 60, value => this.value({ m: value }))
-  ampm      = this.plate.getElementsByClassName('clocklet-ampm')[0] as HTMLElement
   defaultOptions: ClockletOptions
   input: HTMLInputElement | undefined
   dispatchesInputEvents: boolean | undefined
@@ -26,7 +44,6 @@ export default class ClockletClock {
     this.defaultOptions = __assign(Object.create(defaultDefaultOptions), options)
     addEventListener('input', event => event.target === this.input && this.updateHighlight(), true)
     this.root.addEventListener('mousedown', event => event.preventDefault())
-    this.ampm.addEventListener('mousedown', () => this.value({ a: getClockletData(this.ampm, 'ampm') === 'pm' ? 'am' : 'pm' }))
     this.root.addEventListener('clocklet.dragstart', () => this.root.classList.add('clocklet--dragging'))
     this.root.addEventListener('clocklet.dragend', () => this.root.classList.remove('clocklet--dragging'))
 
@@ -158,9 +175,40 @@ export default class ClockletClock {
       return
     }
     const oldValue = this.input.value
+    const format = getClockletData(this.root, 'format')!
+    const hasAmPmFormat = /[aA]/.test(format)
+    
     const _time = typeof time === 'string'
       ? lenientime(time)
-      : lenientime(this.input.value).with(time.a !== undefined ? time : { h: time.h, m: time.m, a: getClockletData(this.ampm, 'ampm') as 'am' | 'pm' })
+      : (() => {
+          if (time.a !== undefined) {
+            // Explicit AM/PM provided
+            return lenientime(this.input.value).with(time)
+          }
+          
+          if (time.h !== undefined) {
+            const hourValue = typeof time.h === 'string' ? parseInt(time.h) : time.h
+            
+            if (!hasAmPmFormat) {
+              // 24-hour format - convert dial position to working hours (7am-6pm)
+              const hour24 = convertTo24Hour(hourValue)
+              return lenientime(this.input.value).with({ h: hour24, m: time.m })
+            } else {
+              // 12-hour format with AM/PM - for legacy support
+              // Apply working hours logic: 7-12=AM, 1-6=PM
+              const timeObj: any = { h: time.h, m: time.m }
+              if (hourValue === 0 || (hourValue >= 7 && hourValue <= 11)) {
+                timeObj.a = 'am'
+              } else {
+                timeObj.a = 'pm'
+              }
+              return lenientime(this.input.value).with(timeObj)
+            }
+          }
+          
+          // Only minute changed, preserve existing time
+          return lenientime(this.input.value).with({ m: time.m })
+        })()
     const template = getClockletData(this.root, 'format')!
     this.input.value = _time.format(template)
     if (this.input.type === 'text' && typeof time === 'object') {
@@ -183,15 +231,11 @@ export default class ClockletClock {
       setClockletData(this.root, 'value', time.HHmm)
       this.hour.value(time.hour % 12)
       this.minute.value(time.minute)
-      setClockletData(this.ampm, 'ampm', time.a)
     } else {
       setClockletData(this.root, 'value', '')
       this.hour.value(-1)
       this.minute.value(-1)
-      setClockletData(this.ampm, 'ampm', 'am')
     }
-    const ampmToken = findAmpmToken(time.valid ? time : lenientime.ZERO, getClockletData(this.root, 'format')!)
-    setClockletData(this.ampm, 'ampm-formatted', ampmToken && ampmToken.value || '')
   }
 }
 
