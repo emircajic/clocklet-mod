@@ -191,6 +191,9 @@
                 this.currentMinute = 0;
                 this.dragging = false;
                 
+                // Debouncing for FileMaker notifications
+                this.notificationTimeout = null;
+                
                 this.hourHand = document.querySelector('.clocklet-hand--hour');
                 this.minuteHand = document.querySelector('.clocklet-hand--minute');
                 
@@ -220,18 +223,26 @@
                 for (let hour = start; hour <= end; hour++) {
                     hours.push(hour);
                 }
+                console.log('Generated hour range:', start, 'to', end, '=', hours);
                 return hours;
             }
             
             generateHourTicks() {
                 const hourDial = document.querySelector('.clocklet-dial--hour');
+                if (!hourDial) {
+                    console.error('Hour dial not found');
+                    return;
+                }
+                
                 const existingTicks = hourDial.querySelectorAll('.clocklet-tick--hour');
                 
-                // Remove existing hour ticks
+                // Remove existing hour ticks (but preserve the hour hand)
                 existingTicks.forEach(tick => tick.remove());
                 
                 // Generate ticks only for working hours at their natural positions
-                this.workingHours.hours.forEach((hour) => {
+                console.log('Generating hour ticks for hours:', JSON.stringify(this.workingHours.hours));
+                
+                this.workingHours.hours.forEach((hour, index) => {
                     // Convert hour to natural clock position (12=0°, 1=30°, 2=60°, etc.)
                     // For 24-hour format: 13=1, 14=2, etc.
                     const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
@@ -241,6 +252,8 @@
                     
                     const x = Math.round((50 + radius * Math.cos(radian)) * 10) / 10;
                     const y = Math.round((50 + radius * Math.sin(radian)) * 10) / 10;
+                    
+                    console.log(`Processing hour ${index + 1}/${this.workingHours.hours.length}: ${hour} (display ${displayHour}) at position ${x}%, ${y}%`);
                     
                     const tick = document.createElement('button');
                     tick.className = 'clocklet-tick clocklet-tick--hour';
@@ -256,20 +269,35 @@
                     });
                     
                     hourDial.appendChild(tick);
+                    console.log(`Added tick for hour ${hour} to DOM`);
                 });
+                
+                console.log('Hour ticks generated. Total ticks now:', hourDial.querySelectorAll('.clocklet-tick--hour').length);
             }
             
             // Method 2: Global function to set working hours
             setWorkingHours(startHour, endHour) {
+                console.log('Setting working hours:', startHour, 'to', endHour);
+                console.log('Parameter types:', typeof startHour, typeof endHour);
+                
+                // Ensure parameters are numbers
+                const start = parseInt(startHour);
+                const end = parseInt(endHour);
+                
+                console.log('Converted to numbers:', start, 'to', end);
+                
                 this.workingHours = {
-                    start: startHour,
-                    end: endHour,
-                    hours: this.generateHourRange(startHour, endHour)
+                    start: start,
+                    end: end,
+                    hours: this.generateHourRange(start, end)
                 };
                 
+                console.log('Working hours array:', JSON.stringify(this.workingHours.hours));
+                
                 // Reset current hour if outside new range
-                if (this.currentHour < startHour || this.currentHour > endHour) {
-                    this.currentHour = startHour;
+                if (this.currentHour < start || this.currentHour > end) {
+                    this.currentHour = start;
+                    console.log('Reset current hour to:', this.currentHour);
                 }
                 
                 // Regenerate ticks
@@ -404,16 +432,34 @@
             notifyFileMaker() {
                 const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
                 
+                // Clear any pending timeout
+                if (this.notificationTimeout) {
+                    clearTimeout(this.notificationTimeout);
+                    console.log('Cleared previous FileMaker notification timeout');
+                }
+                
+                // Only set timeout - no immediate calls
+                this.notificationTimeout = setTimeout(() => {
+                    console.log('Calling FileMaker with time:', timeString);
+                    this.actuallyNotifyFileMaker(timeString);
+                }, 150); // Longer delay to ensure only final value is sent
+                
+                console.log('Scheduled FileMaker notification for:', timeString);
+            }
+            
+            actuallyNotifyFileMaker(timeString) {
                 // FileMaker function call with fallback retry
                 try {
                     if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
                         FileMaker.PerformScript('HandleTimeChange', timeString);
+                        console.log('Successfully called FileMaker with:', timeString);
                     } else {
                         // If FileMaker not immediately available, wait a bit and try once more
                         setTimeout(() => {
                             try {
                                 if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
                                     FileMaker.PerformScript('HandleTimeChange', timeString);
+                                    console.log('Successfully called FileMaker (retry) with:', timeString);
                                 }
                             } catch (retryError) {
                                 console.log('FileMaker retry call failed, time value:', timeString);
