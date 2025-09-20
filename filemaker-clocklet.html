@@ -197,6 +197,9 @@
                 this.generateHourTicks();
                 this.initializeEventListeners();
                 this.updateHands();
+                
+                // Signal to FileMaker that control is ready
+                this.notifyFileMakerReady();
             }
             
             parseWorkingHours() {
@@ -401,14 +404,53 @@
             notifyFileMaker() {
                 const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
                 
-                // FileMaker function call
+                // FileMaker function call with fallback retry
                 try {
-                    // Method 1: FileMaker.PerformScript (FileMaker 19+)
                     if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
                         FileMaker.PerformScript('HandleTimeChange', timeString);
+                    } else {
+                        // If FileMaker not immediately available, wait a bit and try once more
+                        setTimeout(() => {
+                            try {
+                                if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
+                                    FileMaker.PerformScript('HandleTimeChange', timeString);
+                                }
+                            } catch (retryError) {
+                                console.log('FileMaker retry call failed, time value:', timeString);
+                            }
+                        }, 50);
                     }
                 } catch (error) {
                     console.log('FileMaker call failed, time value:', timeString);
+                }
+            }
+            
+            notifyFileMakerReady() {
+                // Signal that the control is loaded and ready for configuration
+                // Use retry mechanism since FileMaker object may not be available immediately
+                this.waitForFileMaker(() => {
+                    try {
+                        FileMaker.PerformScript('ClockletReady', '');
+                    } catch (error) {
+                        console.log('FileMaker ready notification failed:', error);
+                    }
+                });
+            }
+            
+            waitForFileMaker(callback, maxAttempts = 20, attempt = 1) {
+                // Check if FileMaker is available
+                if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
+                    callback();
+                    return;
+                }
+                
+                // If not available and we haven't exceeded max attempts, try again
+                if (attempt < maxAttempts) {
+                    setTimeout(() => {
+                        this.waitForFileMaker(callback, maxAttempts, attempt + 1);
+                    }, 100); // Wait 100ms between attempts
+                } else {
+                    console.log('FileMaker object not available after', maxAttempts, 'attempts');
                 }
             }
             
