@@ -174,19 +174,6 @@
                 </div>
                 <div class="clocklet-dial clocklet-dial--hour">
                     <div class="clocklet-hand clocklet-hand--hour"></div>
-                    <!-- Hour ticks: 0-11 (12, 1, 2, ..., 11) -->
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="12" style="left:50%;top:16.2%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="13" style="left:69.5%;top:19.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="14" style="left:83.8%;top:30.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="15" style="left:89%;top:50%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="16" style="left:83.8%;top:69.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="17" style="left:69.5%;top:80.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="18" style="left:50%;top:83.8%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="7" style="left:30.5%;top:80.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="8" style="left:16.2%;top:69.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="9" style="left:11%;top:50%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="10" style="left:16.2%;top:30.5%"></button>
-                    <button class="clocklet-tick clocklet-tick--hour" type="button" data-clocklet-tick-value="11" style="left:30.5%;top:19.5%"></button>
                 </div>
                 <div class="clocklet-hand-origin"></div>
             </div>
@@ -197,27 +184,98 @@
         // FileMaker Clocklet Control
         class FileMakerClocklet {
             constructor() {
-                this.currentHour = 12;
+                // Default working hours (can be overridden)
+                this.workingHours = this.parseWorkingHours();
+                
+                this.currentHour = this.workingHours.start;
                 this.currentMinute = 0;
                 this.dragging = false;
                 
                 this.hourHand = document.querySelector('.clocklet-hand--hour');
                 this.minuteHand = document.querySelector('.clocklet-hand--minute');
-                //this.timeDisplay = document.getElementById('timeDisplay');
                 
+                this.generateHourTicks();
                 this.initializeEventListeners();
-                //this.updateDisplay();
+                this.updateHands();
             }
             
-            initializeEventListeners() {
-                // Hour tick listeners
-                document.querySelectorAll('.clocklet-tick--hour').forEach(tick => {
+            parseWorkingHours() {
+                // Method 1: URL Parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const startHour = parseInt(urlParams.get('startHour')) || 9;
+                const endHour = parseInt(urlParams.get('endHour')) || 17;
+                
+                return {
+                    start: startHour,
+                    end: endHour,
+                    hours: this.generateHourRange(startHour, endHour)
+                };
+            }
+            
+            generateHourRange(start, end) {
+                const hours = [];
+                for (let hour = start; hour <= end; hour++) {
+                    hours.push(hour);
+                }
+                return hours;
+            }
+            
+            generateHourTicks() {
+                const hourDial = document.querySelector('.clocklet-dial--hour');
+                const existingTicks = hourDial.querySelectorAll('.clocklet-tick--hour');
+                
+                // Remove existing hour ticks
+                existingTicks.forEach(tick => tick.remove());
+                
+                // Generate ticks only for working hours at their natural positions
+                this.workingHours.hours.forEach((hour) => {
+                    // Convert hour to natural clock position (12=0°, 1=30°, 2=60°, etc.)
+                    // For 24-hour format: 13=1, 14=2, etc.
+                    const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+                    const angle = (displayHour * 30) - 90; // 30° per hour, -90° to start from top
+                    const radian = (angle * Math.PI) / 180;
+                    const radius = 39; // Same as original
+                    
+                    const x = Math.round((50 + radius * Math.cos(radian)) * 10) / 10;
+                    const y = Math.round((50 + radius * Math.sin(radian)) * 10) / 10;
+                    
+                    const tick = document.createElement('button');
+                    tick.className = 'clocklet-tick clocklet-tick--hour';
+                    tick.type = 'button';
+                    tick.setAttribute('data-clocklet-tick-value', hour.toString());
+                    tick.style.left = `${x}%`;
+                    tick.style.top = `${y}%`;
+                    
+                    // Add click listener
                     tick.addEventListener('click', (e) => {
                         const hourValue = parseInt(e.target.getAttribute('data-clocklet-tick-value'));
                         this.setHour(hourValue);
                     });
+                    
+                    hourDial.appendChild(tick);
                 });
+            }
+            
+            // Method 2: Global function to set working hours
+            setWorkingHours(startHour, endHour) {
+                this.workingHours = {
+                    start: startHour,
+                    end: endHour,
+                    hours: this.generateHourRange(startHour, endHour)
+                };
                 
+                // Reset current hour if outside new range
+                if (this.currentHour < startHour || this.currentHour > endHour) {
+                    this.currentHour = startHour;
+                }
+                
+                // Regenerate ticks
+                this.generateHourTicks();
+                this.updateHands();
+                this.notifyFileMaker();
+            }
+            
+            initializeEventListeners() {
                 // Minute tick listeners
                 document.querySelectorAll('.clocklet-tick--minute').forEach(tick => {
                     tick.addEventListener('click', (e) => {
@@ -274,9 +332,17 @@
                 const minuteDialRadius = rect.width * 0.4;
                 
                 if (distance < hourDialRadius) {
-                    // Hour adjustment
-                    const hourValue = Math.round(degrees / 30) % 12;
-                    this.setHour(hourValue);
+                    // Hour adjustment - find closest working hour at natural position
+                    const clockHour = Math.round(degrees / 30) % 12; // 0-11 (12, 1, 2, ..., 11)
+                    const displayHour = clockHour === 0 ? 12 : clockHour; // Convert 0 to 12
+                    
+                    // Find matching working hours (both AM and PM versions)
+                    const possibleHours = [displayHour, displayHour + 12];
+                    const workingHour = possibleHours.find(h => this.workingHours.hours.includes(h));
+                    
+                    if (workingHour) {
+                        this.setHour(workingHour);
+                    }
                 } else if (distance < minuteDialRadius) {
                     // Minute adjustment (snap to quarters)
                     const minuteValue = Math.round(degrees / 90) * 15;
@@ -285,40 +351,27 @@
             }
             
             setHour(hourValue) {
-                // Convert dial position to 24-hour working hours (7am-6pm)
-                this.currentHour = this.convertTo24Hour(hourValue);
-                //this.updateDisplay();
+                // Direct hour value (no conversion needed)
+                this.currentHour = hourValue;
                 this.updateHands();
                 this.notifyFileMaker();
             }
             
             setMinute(minuteValue) {
                 this.currentMinute = minuteValue;
-                //this.updateDisplay();
                 this.updateHands();
                 this.notifyFileMaker();
             }
             
             convertTo24Hour(hour) {
-                // Working hours focus: 7am-6pm
-                if (hour === 0) {
-                    return 12; // 12 o'clock position = 12:00 (noon)
-                } else if (hour >= 1 && hour <= 6) {
-                    return hour + 12; // 1-6 o'clock = 13:00-18:00 (1pm-6pm)
-                } else if (hour >= 7 && hour <= 11) {
-                    return hour; // 7-11 o'clock = 07:00-11:00 (7am-11am)
-                }
+                // This method is no longer needed since we use direct hour values
                 return hour;
             }
             
-            updateDisplay() {
-                const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
-                //this.timeDisplay.textContent = timeString;
-            }
-            
             updateHands() {
-                // Update hour hand
-                const hourAngle = (this.currentHour % 12) * 30 + (this.currentMinute / 60) * 30;
+                // Update hour hand (convert to 12-hour for visual display)
+                const displayHour = this.currentHour > 12 ? this.currentHour - 12 : this.currentHour;
+                const hourAngle = (displayHour % 12) * 30 + (this.currentMinute / 60) * 30;
                 this.hourHand.style.transform = `rotate(${hourAngle}deg)`;
                 
                 // Update minute hand
@@ -336,14 +389,14 @@
                 });
                 
                 // Highlight current hour tick
-                const hourDialValue = this.currentHour <= 12 ? (this.currentHour === 12 ? 0 : this.currentHour) : this.currentHour - 12;
-                const hourTick = document.querySelector(`[data-clocklet-tick-value="${hourDialValue}"].clocklet-tick--hour`);
+                const hourTick = document.querySelector(`[data-clocklet-tick-value="${this.currentHour}"].clocklet-tick--hour`);
                 if (hourTick) hourTick.classList.add('clocklet-tick--selected');
                 
                 // Highlight current minute tick
                 const minuteTick = document.querySelector(`[data-clocklet-tick-value="${this.currentMinute}"].clocklet-tick--minute`);
                 if (minuteTick) minuteTick.classList.add('clocklet-tick--selected');
             }
+
             
             notifyFileMaker() {
                 const timeString = `${this.currentHour.toString().padStart(2, '0')}:${this.currentMinute.toString().padStart(2, '0')}`;
@@ -364,7 +417,6 @@
                 const [hours, minutes] = timeString.split(':').map(Number);
                 this.currentHour = hours;
                 this.currentMinute = minutes;
-                //this.updateDisplay();
                 this.updateHands();
             }
         }
@@ -374,6 +426,9 @@
         
         // Expose setTime method globally for FileMaker to call
         window.setClockletTime = (timeString) => clocklet.setTime(timeString);
+        
+        // Expose setWorkingHours method globally for FileMaker to call
+        window.setClockletWorkingHours = (startHour, endHour) => clocklet.setWorkingHours(startHour, endHour);
     </script>
 </body>
 </html>
