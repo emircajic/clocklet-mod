@@ -191,6 +191,9 @@
                 this.currentMinute = 0;
                 this.dragging = false;
                 
+                // Unique instance identifier
+                this.instanceId = this.getInstanceId();
+                
                 // Debouncing for FileMaker notifications
                 this.notificationTimeout = null;
                 
@@ -216,6 +219,16 @@
                     end: endHour,
                     hours: this.generateHourRange(startHour, endHour)
                 };
+            }
+            
+            getInstanceId() {
+                // Method 1: URL parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlId = urlParams.get('instanceId');
+                if (urlId) return urlId;
+                
+                // Method 2: Generate based on timestamp + random
+                return 'clocklet_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             }
             
             generateHourRange(start, end) {
@@ -448,26 +461,32 @@
             }
             
             actuallyNotifyFileMaker(timeString) {
+                // Create parameter object with instance ID and time
+                const parameter = JSON.stringify({
+                    instanceId: this.instanceId,
+                    time: timeString
+                });
+                
                 // FileMaker function call with fallback retry
                 try {
                     if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
-                        FileMaker.PerformScript('HandleTimeChange', timeString);
-                        console.log('Successfully called FileMaker with:', timeString);
+                        FileMaker.PerformScript('HandleTimeChange', parameter);
+                        console.log('Successfully called FileMaker with:', parameter);
                     } else {
                         // If FileMaker not immediately available, wait a bit and try once more
                         setTimeout(() => {
                             try {
                                 if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
-                                    FileMaker.PerformScript('HandleTimeChange', timeString);
-                                    console.log('Successfully called FileMaker (retry) with:', timeString);
+                                    FileMaker.PerformScript('HandleTimeChange', parameter);
+                                    console.log('Successfully called FileMaker (retry) with:', parameter);
                                 }
                             } catch (retryError) {
-                                console.log('FileMaker retry call failed, time value:', timeString);
+                                console.log('FileMaker retry call failed, parameter:', parameter);
                             }
                         }, 50);
                     }
                 } catch (error) {
-                    console.log('FileMaker call failed, time value:', timeString);
+                    console.log('FileMaker call failed, parameter:', parameter);
                 }
             }
             

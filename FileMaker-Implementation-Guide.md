@@ -16,8 +16,20 @@ Perform JavaScript in Web Viewer [ Object Name: "TimePickerWebViewer" ; Function
 #### Script: "HandleTimeChange" 
 ```
 # Called when user selects a time
-# Parameter: Time string like "14:30"
-Set Field [ YourTable::SelectedTime ; Get(ScriptParameter) ]
+# Parameter: JSON object like {"instanceId":"clocklet_123","time":"14:30"}
+
+# Parse the JSON parameter
+Set Variable [ $json ; Get(ScriptParameter) ]
+Set Variable [ $instanceId ; JSONGetElement($json ; "instanceId") ]
+Set Variable [ $time ; JSONGetElement($json ; "time") ]
+
+# Handle different instances
+If [ $instanceId = "startTime" ]
+    Set Field [ YourTable::StartTime ; $time ]
+Else If [ $instanceId = "endTime" ]  
+    Set Field [ YourTable::EndTime ; $time ]
+End If
+
 Close Popover
 ```
 
@@ -31,6 +43,13 @@ Close Popover
 #### Data URI Format:
 ```
 data:text/html,<!DOCTYPE html><html>...your entire HTML content...</html>
+```
+
+#### Multiple Instance Support:
+For multiple time pickers, add instanceId to the URL:
+```
+data:text/html,<!DOCTYPE html><html>...content...</html>?instanceId=startTime
+data:text/html,<!DOCTYPE html><html>...content...</html>?instanceId=endTime
 ```
 
 ### Step 3: Dynamic Working Hours
