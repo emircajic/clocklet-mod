@@ -1,104 +1,162 @@
 # FileMaker Clocklet Implementation Guide
 
-## Recommended Approach: Data URI + JavaScript Call
+## Simple Self-Contained Implementation
 
-This approach embeds the HTML directly in FileMaker and uses JavaScript calls to configure working hours.
+This approach uses a single script that handles opening the clocklet, configuring it, and processing the result. No URL parameters or multiple scripts needed.
 
-### Step 1: Create FileMaker Scripts
+### Step 1: Create Your Time Picker Script
 
-#### Script: "ClockletReady"
+Copy this script template and customize the configuration section at the top:
+
+#### Script: "SetStartTime"
 ```
-# Called when the clocklet control is loaded and ready
-# Set working hours based on your business logic
-Perform JavaScript in Web Viewer [ Object Name: "TimePickerWebViewer" ; Function: "setClockletWorkingHours(9, 17)" ]
-```
+# Configuration (edit these values as needed)
+Set Variable [ $workingStart ; 9 ]    # 9 AM
+Set Variable [ $workingEnd ; 17 ]      # 5 PM  
+Set Variable [ $webViewerName ; "StartTimeWebViewer" ]
+Set Variable [ $popoverName ; "StartTimePopover" ]
+Set Variable [ $targetField ; "YourTable::StartTime" ]
 
-#### Script: "HandleTimeChange" 
-```
-# Called when user selects a time
-# Parameter: JSON object like {"instanceId":"clocklet_123","time":"14:30"}
-
-# Parse the JSON parameter
-Set Variable [ $json ; Get(ScriptParameter) ]
-Set Variable [ $instanceId ; JSONGetElement($json ; "instanceId") ]
-Set Variable [ $time ; JSONGetElement($json ; "time") ]
-
-# Handle different instances
-If [ $instanceId = "startTime" ]
-    Set Field [ YourTable::StartTime ; $time ]
-Else If [ $instanceId = "endTime" ]  
-    Set Field [ YourTable::EndTime ; $time ]
+# Check if this is a callback from the clocklet
+If [ Get(ScriptParameter) ≠ "" ]
+    # This is a callback - parse JSON state and set the time
+    Set Variable [ $state ; Get(ScriptParameter) ]
+    Set Variable [ $time ; JSONGetElement($state ; "time") ]
+    Set Field [ Evaluate($targetField) ; $time ]
+    Close Popover
+    Exit Script [ ]
 End If
 
-Close Popover
+# This is the initial call - open popover and configure clocklet
+Show Popover [ Object Name: Evaluate($popoverName) ; YourLayout::StartTimePopover ; Position: Below ]
+Pause/Resume Script [ Duration (seconds): 0.2 ]
+
+# Create configuration JSON with current field value
+Set Variable [ $currentTime ; Evaluate($targetField) ]
+Set Variable [ $config ; JSONSetElement ( "{}" ; 
+    [ "callbackScript" ; Get(ScriptName) ; JSONString ] ;
+    [ "startHour" ; $workingStart ; JSONNumber ] ;
+    [ "endHour" ; $workingEnd ; JSONNumber ] ;
+    [ "currentTime" ; $currentTime ; JSONString ]
+) ]
+
+# Configure the clocklet
+Set Variable [ $jsFunction ; "setClockletConfig(" & Quote($config) & ")" ]
+Perform JavaScript in Web Viewer [ 
+    Object Name: Evaluate($webViewerName) ; 
+    Function: $jsFunction 
+]
 ```
 
-### Step 2: WebViewer Setup
+### Step 2: Create Layout Objects
 
-#### In your FileMaker layout:
-1. Create a WebViewer object
-2. Name it "TimePickerWebViewer"
-3. Set the Web Address to: `data:text/html,` + the HTML content
+You need to create these objects on your FileMaker layout:
 
-#### Data URI Format:
+#### Required Layout Objects:
+1. **Button** → Name it anything (e.g., "StartTimeButton")
+   - Set button action to: `Perform Script ["SetStartTime"]`
+
+2. **Popover** → Name it exactly as specified in script: `"StartTimePopover"`
+   - Position: Below the button
+   - Contains the WebViewer (see next step)
+
+3. **WebViewer** → Name it exactly as specified in script: `"StartTimeWebViewer"`
+   - Place inside the popover
+   - Set Web Address to: `data:text/html,[YOUR_HTML_CONTENT]`
+   - Size: Recommended 300x300 pixels
+
+#### WebViewer HTML Content:
+Simply embed the entire clocklet HTML file content as a data URI:
 ```
-data:text/html,<!DOCTYPE html><html>...your entire HTML content...</html>
+data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...</html>
 ```
 
-#### Multiple Instance Support:
-For multiple time pickers, add instanceId to the URL:
+**No URL parameters needed** - everything is configured via the script!
+
+### Step 3: Multiple Time Pickers (Optional)
+
+To create additional time pickers, simply duplicate the script and change the configuration:
+
+#### Example: "SetEndTime" Script
 ```
-data:text/html,<!DOCTYPE html><html>...content...</html>?instanceId=startTime
-data:text/html,<!DOCTYPE html><html>...content...</html>?instanceId=endTime
+# Configuration (edit these values as needed)
+Set Variable [ $workingStart ; 9 ]     # 9 AM
+Set Variable [ $workingEnd ; 17 ]       # 5 PM
+Set Variable [ $webViewerName ; "EndTimeWebViewer" ]    # Different name
+Set Variable [ $popoverName ; "EndTimePopover" ]        # Different name  
+Set Variable [ $targetField ; "YourTable::EndTime" ]    # Different field
+
+# ... rest of script is identical ...
 ```
 
-### Step 3: Dynamic Working Hours
+Then create corresponding layout objects with the new names.
 
-You can make working hours dynamic based on user, department, etc.:
+### Step 4: Customization Options
+
+#### Dynamic Working Hours:
+You can make working hours dynamic based on user, role, or any other logic:
 
 ```
-# In ClockletReady script:
+# In your script configuration section:
 If [ Get(AccountName) = "EarlyShift" ]
-    Perform JavaScript in Web Viewer [ "setClockletWorkingHours(6, 14)" ]
+    Set Variable [ $workingStart ; 6 ]   # 6 AM
+    Set Variable [ $workingEnd ; 14 ]    # 2 PM
 Else If [ Get(AccountName) = "LateShift" ]  
-    Perform JavaScript in Web Viewer [ "setClockletWorkingHours(14, 22)" ]
+    Set Variable [ $workingStart ; 14 ]  # 2 PM
+    Set Variable [ $workingEnd ; 22 ]    # 10 PM
 Else
-    Perform JavaScript in Web Viewer [ "setClockletWorkingHours(9, 17)" ]
+    Set Variable [ $workingStart ; 9 ]   # 9 AM
+    Set Variable [ $workingEnd ; 17 ]    # 5 PM
 End If
 ```
 
-## Alternative Approaches
+## Key Benefits
 
-### Option A: Server-Hosted (If you prefer)
-- Host the HTML file on your server
-- Use URL: `https://yourserver.com/clocklet.html?startHour=9&endHour=17`
-- **WebDirect Consideration**: May have issues with external URLs
+### ✅ **Simple Setup**
+- **One script per time picker** - easy to understand and maintain
+- **No URL parameters** - everything configured via FileMaker script
+- **Self-contained** - script handles both opening and result processing
 
-### Option B: Container Field
-- Store HTML file in a FileMaker container field
-- Export to temporary file and load in WebViewer
-- More complex but fully self-contained
+### ✅ **Reactive State**
+- **Shows current field value** - clocklet reflects existing time
+- **Rich feedback** - returns complete state information as JSON
+- **Automatic callback** - script name passed automatically via `Get(ScriptName)`
 
-## WebDirect Compatibility
-
-The **Data URI approach** is most WebDirect-friendly because:
-- No external dependencies
-- No HTTPS/HTTP mixed content issues
-- No firewall/security restrictions
-- Fully contained within FileMaker
+### ✅ **WebDirect Compatible**
+- **Data URI approach** - no external dependencies
+- **No mixed content issues** - fully contained within FileMaker
+- **Works offline** - no server requirements
 
 ## Implementation Tips
 
-1. **Minify HTML**: Remove unnecessary whitespace for shorter data URI
-2. **Error Handling**: Always wrap JavaScript calls in try/catch
-3. **Testing**: Test in both FileMaker Pro and WebDirect
-4. **Fallbacks**: Consider fallback UI if WebViewer fails
+1. **Object Naming**: Make sure WebViewer and Popover names in your script match the actual layout object names exactly
+2. **Testing**: Test in both FileMaker Pro and WebDirect environments
+3. **Error Handling**: The script includes automatic error handling and retry logic
+4. **Customization**: All configuration is at the top of the script - easy to modify
 
-## Sample FileMaker Button Script
-```
-# Button to open time picker popover
-Show Popover [ Object Name: "TimePickerPopover" ; YourLayout::TimePickerPopover ; Position: Below ]
-# The popover contains the WebViewer with the clocklet
+## JSON State Exchange
+
+The clocklet uses JSON for rich state communication:
+
+**Configuration sent to clocklet:**
+```json
+{
+  "callbackScript": "SetStartTime",
+  "startHour": 9,
+  "endHour": 17,
+  "currentTime": "14:30"
+}
 ```
 
-This approach gives you maximum flexibility and compatibility across all FileMaker deployment scenarios.
+**State returned from clocklet:**
+```json
+{
+  "time": "15:45",
+  "hour": 15,
+  "minute": 45,
+  "workingHours": {"start": 9, "end": 17},
+  "config": {...}
+}
+```
+
+This approach provides maximum flexibility while keeping implementation simple and maintainable.

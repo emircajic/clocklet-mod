@@ -191,8 +191,8 @@
                 this.currentMinute = 0;
                 this.dragging = false;
                 
-                // Unique instance identifier
-                this.instanceId = this.getInstanceId();
+                // Get callback script name
+                this.callbackScript = this.getCallbackScript();
                 
                 // Debouncing for FileMaker notifications
                 this.notificationTimeout = null;
@@ -221,14 +221,10 @@
                 };
             }
             
-            getInstanceId() {
-                // Method 1: URL parameter
+            getCallbackScript() {
+                // Get the callback script name from URL parameter
                 const urlParams = new URLSearchParams(window.location.search);
-                const urlId = urlParams.get('instanceId');
-                if (urlId) return urlId;
-                
-                // Method 2: Generate based on timestamp + random
-                return 'clocklet_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                return urlParams.get('callbackScript') || 'HandleTimeChange';
             }
             
             generateHourRange(start, end) {
@@ -461,32 +457,45 @@
             }
             
             actuallyNotifyFileMaker(timeString) {
-                // Create parameter object with instance ID and time
-                const parameter = JSON.stringify({
-                    instanceId: this.instanceId,
-                    time: timeString
-                });
+                // Create state object to return to FileMaker
+                const state = {
+                    time: timeString,
+                    hour: this.currentHour,
+                    minute: this.currentMinute,
+                    workingHours: {
+                        start: this.workingHours.start,
+                        end: this.workingHours.end
+                    }
+                };
+                
+                // Include any additional config state that was passed in
+                if (this.configState) {
+                    state.config = this.configState;
+                }
+                
+                const parameter = JSON.stringify(state);
+                console.log(`Calling FileMaker script: ${this.callbackScript} with state:`, state);
                 
                 // FileMaker function call with fallback retry
                 try {
                     if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
-                        FileMaker.PerformScript('HandleTimeChange', parameter);
-                        console.log('Successfully called FileMaker with:', parameter);
+                        FileMaker.PerformScript(this.callbackScript, parameter);
+                        console.log(`Successfully called ${this.callbackScript} with state`);
                     } else {
                         // If FileMaker not immediately available, wait a bit and try once more
                         setTimeout(() => {
                             try {
                                 if (typeof FileMaker !== 'undefined' && FileMaker.PerformScript) {
-                                    FileMaker.PerformScript('HandleTimeChange', parameter);
-                                    console.log('Successfully called FileMaker (retry) with:', parameter);
+                                    FileMaker.PerformScript(this.callbackScript, parameter);
+                                    console.log(`Successfully called ${this.callbackScript} (retry) with state`);
                                 }
                             } catch (retryError) {
-                                console.log('FileMaker retry call failed, parameter:', parameter);
+                                console.log(`FileMaker retry call failed for ${this.callbackScript}:`, retryError);
                             }
                         }, 50);
                     }
                 } catch (error) {
-                    console.log('FileMaker call failed, parameter:', parameter);
+                    console.log(`FileMaker call failed for ${this.callbackScript}:`, error);
                 }
             }
             
@@ -526,6 +535,34 @@
                 this.currentMinute = minutes;
                 this.updateHands();
             }
+            setCallback(scriptName) {
+                this.callbackScript = String(scriptName || '').trim() || 'HandleTimeChange';
+            }
+
+            setConfig(config) {
+                // Accept JSON object or parse JSON string
+                const settings = typeof config === 'string' ? JSON.parse(config) : config;
+                
+                console.log('Configuring clocklet with:', settings);
+                
+                // Set callback script
+                if (settings.callbackScript) {
+                    this.setCallback(settings.callbackScript);
+                }
+                
+                // Set working hours
+                if (settings.startHour !== undefined && settings.endHour !== undefined) {
+                    this.setWorkingHours(settings.startHour, settings.endHour);
+                }
+                
+                // Set initial time if provided
+                if (settings.currentTime) {
+                    this.setTime(settings.currentTime);
+                }
+                
+                // Store any additional state for future use
+                this.configState = settings;
+            }
         }
         
         // Initialize the control
@@ -536,6 +573,9 @@
         
         // Expose setWorkingHours method globally for FileMaker to call
         window.setClockletWorkingHours = (startHour, endHour) => clocklet.setWorkingHours(startHour, endHour);
+
+        window.setClockletCallback = (scriptName) => clocklet.setCallback(scriptName);
+        window.setClockletConfig = (config) => clocklet.setConfig(config);
     </script>
 </body>
 </html>
