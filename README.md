@@ -1,14 +1,14 @@
 ## FileMaker Clocklet
 
-This time selector is based on HTML Clocklet by luncheon. You can find it here: [Luncheon Clocklet](https://github.com/luncheon/clocklet). This is a very toned down version of it. For more features, you can check out the original repository.
+This time selector is based on HTML Clocklet by luncheon. You can find it here: [Luncheon Clocklet](https://github.com/luncheon/clocklet).
 
-I chose to modify it to work with FileMaker, as Filemaker doesn't offer a time picker worth of mention. Also, time pickers that I tried are not very intuitive, as they require you to make multiple clicks or selections, so users find it more convenient to enter time manually. I tried to create a time picker that is simple and efficient, in that it takes you two clicks, one for hour and the other for minute, to select the desired time. 
+Filemaker, unfortunately, doesn't offer a time picker worth of mention. Also, majority of time pickers that I tried are not very intuitive or user-friendly, as they require you to make multiple clicks or selections, so users find it more convenient to enter time manually. I tried to create a time picker that is simple and efficient, as it takes two clicks, one for hour and the other for minute, to select the desired time. 
 
-In order to achieve this, I modified the clocklet to select only time range which is most common, so it is possible to select times from 7:00 to 18:59, as those are most common working hours when all stuff happens. Furthermore, you are able to set the selectable time range to less than that, if your company, or your client, has different working hours.
+In order to achieve this, I modified the clocklet to avoid choosing am/pm, and to select only time range which is most common, so it is possible to select times from 7:00 to 18:59, as those are  hours when most of the stuff happens. Furthermore, you are able to set the selectable time range to less than that, if your company, or your client, has different working hours.
 
 ## Implementation Guide
 
-You need a couple of layout objects and a script that handles opening the clocklet, configuring it, and processing the result. Couldn't make it simpler than that.
+You need two layout objects and a script that handles opening the clocklet, configuring it, and processing the result. Couldn't make it simpler than that.
 
 ### Step 1: Create Layout Objects
 
