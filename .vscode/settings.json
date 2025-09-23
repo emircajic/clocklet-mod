@@ -1,9 +1,0 @@
-{
-  "search.exclude": {
-    "**/node_modules": true,
-    "es": true,
-    "umd": true,
-    "css": true,
-    "demo": true
-  }
-}
