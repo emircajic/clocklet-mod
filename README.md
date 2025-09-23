@@ -1,168 +1,168 @@
-## <a name="clocklet" href="#clocklet" style="pointer-events:none">![Clocklet](https://luncheon.github.io/clocklet/logo.png)</a>
+## FileMaker Clocklet
 
-[![npm](https://img.shields.io/npm/dm/clocklet.svg?style=popout-square&label=npm&colorB=orange)](https://www.npmjs.com/package/clocklet)
-[![jsDelivr](https://data.jsdelivr.com/v1/package/npm/clocklet/badge)](https://www.jsdelivr.com/package/npm/clocklet)
-[<img alt="WTFPL" src="https://luncheon.github.io/wtfpl-badge.png" height="20">](http://www.wtfpl.net)
+This time selector is based on HTML Clocklet by luncheon. You can find it here: [Luncheon Clocklet](https://github.com/luncheon/clocklet). This is a very toned down version of it. For more features, you can check out the original repository.
 
-An opinionated clock-style vanilla-js timepicker.  
-[Demo  
-![clocklet capture image](https://luncheon.github.io/clocklet/capture.png)](https://luncheon.github.io/clocklet/demo.html)
+I chose to modify it to work with FileMaker, as Filemaker doesn't offer a time picker worth of mention. Also, time pickers that I tried are not very intuitive, as they require you to make multiple clicks or selections, so users find it more convenient to enter time manually. I tried to create a time picker that is simple and efficient, in that it takes you two clicks, one for hour and the other for minute, to select the desired time. 
 
+In order to achieve this, I modified the clocklet to select only time range which is most common, so it is possible to select times from 7:00 to 18:59, as those are most common working hours when all stuff happens. Furthermore, you are able to set the selectable time range to less than that, if your company, or your client, has different working hours.
 
-## Features
+## Implementation Guide
 
-* **Keyboard and numpad friendly**
-  * Autocomplete - e.g. `"1"`->`"01:00"`, `"12"`->`"12:00"`, `"1234"`->`"12:34"`
-  * Support up/down arrow key to increment/decrement
-* Mouse and touch friendly
-  * 3 clicks are sufficient to pick a time - am/pm, hour, minute
-  * Click targets often used are large enough
-  * No need to scroll
-* Declarative usage
-* Vanilla JS - no need jQuery or any other frameworks
-* Lightweight (CSS + JS ~ 7kB gzipped)
+You need a couple of layout objects and a script that handles opening the clocklet, configuring it, and processing the result. Couldn't make it simpler than that.
 
+### Step 1: Create Layout Objects
 
-## Installation
+You need to create these objects on your FileMaker layout:
 
-### via npm (with a module bundler)
+#### Required Layout Objects:
+1. **Popover** → Name it anything (e.g., "StartTimePopover")
 
-```bash
-$ npm install clocklet
+2. **WebViewer** → Name it exactly as specified in script: `"StartTimeWebViewer"`
+   - Place inside the popover
+   - Set Web Address to: `data:text/html,[YOUR_HTML_CONTENT]`
+   - Size: Recommended 320x320 pixels
+
+#### WebViewer HTML Content:
+Embed the entire clocklet HTML file content as a data URI:
+```
+data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...</html>
 ```
 
-```javascript
-import "clocklet/css/clocklet.min.css";
-import clocklet from "clocklet";
+**No URL parameters needed** - everything is configured via the script!
+
+### Step 2: Create Your Time Picker Script
+- Open the Script Workspace and create a new script named "SetStartTime".
+- Copy the script steps below into the script (unfortunatelly you can't copy and paste the script steps, as the FileMaker doesn't allow it, you must enter them manually):
+
+#### Script: "SetStartTime"
+```
+# Configuration (edit these values as needed)
+Set Variable [ $workingStart ; 9 ]    # 9 AM
+Set Variable [ $workingEnd ; 17 ]      # 5 PM  
+Set Variable [ $webViewerName ; "StartTimeWebViewer" ]
+Set Variable [ $targetField ; "YourTable::StartTime" ] # Note that this is a string noting the field name, not the field itself.
+
+# Check if this is a callback from the clocklet
+If [ Get(ScriptParameter) ≠ "" ]
+    # This is a callback - parse JSON state and set the time
+    Set Variable [ $state ; Get(ScriptParameter) ]
+    Set Variable [ $time ; JSONGetElement($state ; "time") ]
+    Set Field By Name [ $targetField ; $time ]
+    Exit Script [ ]
+End If
+
+Set Variable [ $currentTime; Evaluate($targetField) ]
+
+# Create configuration JSON
+Set Variable [ $config ; JSONSetElement ( "{}";
+    [ "callbackScript" ; Get(ScriptName) ; JSONString ] ;
+    [ "startHour" ; $workingStart ; JSONNumber ] ;
+    [ "endHour" ; $workingEnd ; JSONNumber ] ;
+    [ "currentTime" ; $currentTime ; JSONString ]
+ ) ]
+    
+Pause/Resume Script [Duration (seconds): 0.5]
+
+Perform JavaScript in Web Viewer [ 
+    Object Name: $webViewerName ; 
+    Function: "setClockletConfig";
+    Parameters: $config 
+]
+
 ```
 
-### via CDN
+- Set **OnObjectEnter** trigger of the popover to: `Perform Script ["SetStartTime"]`
 
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/clocklet@0.3.0/css/clocklet.min.css">
-<script src="https://cdn.jsdelivr.net/npm/clocklet@0.3.0"></script>
-<script>/* `window.clocklet` object is available */</script>
+### Step 3: How It Works
+
+1. **User clicks popover button** → Runs "SetStartTime" script in configuration mode 
+2. **The script configures the webviewer while the popover opens** → The webviewer is configured with the configuration JSON created by the script
+3. **User selects time** → Clocklet calls back "SetStartTime" with result
+4. **Script processes result** → Sets field value
+
+### Step 4: Multiple Time Pickers (Optional)
+
+To create additional time pickers, duplicate the button script and change the configuration:
+
+#### Example: "SetEndTime" Script
+```
+# Configuration (edit these values as needed)
+Set Variable [ $workingStart ; 9 ]     # 9 AM
+Set Variable [ $workingEnd ; 17 ]       # 5 PM
+Set Variable [ $webViewerName ; "EndTimeWebViewer" ]    # Different name
+Set Variable [ $targetField ; "YourTable::EndTime" ]    # Different field
+
+# ... rest of script is identical to SetStartTime ...
 ```
 
-### Download directly
+Then create corresponding layout objects with the new names. The same "ConfigureClocklet" trigger script works for all instances.
 
-<a target="_blank" download="clocklet.min.css" href="https://cdn.jsdelivr.net/npm/clocklet@0.3.0/css/clocklet.min.css">clocklet.min.css</a>  
-<a target="_blank" download="clocklet.min.js"  href="https://cdn.jsdelivr.net/npm/clocklet@0.3.0/umd/clocklet.min.js">clocklet.min.js</a>
+### Step 5: Customization Options
 
+#### Dynamic Working Hours:
+You can make working hours dynamic based on user, role, or any other logic:
 
-## Usage
-
-Place `<input>` elements having `data-clocklet` attribute (either before or after loading the clocklet script).  
-When these elements get focused, the timepicker popups.
-
-```html
-<input data-clocklet>
+```
+# In your script configuration section:
+If [ Get(AccountName) = "EarlyShift" ]
+    Set Variable [ $workingStart ; 6 ]   # 6 AM
+    Set Variable [ $workingEnd ; 14 ]    # 2 PM
+Else If [ Get(AccountName) = "LateShift" ]  
+    Set Variable [ $workingStart ; 14 ]  # 2 PM
+    Set Variable [ $workingEnd ; 22 ]    # 10 PM
+Else
+    Set Variable [ $workingStart ; 9 ]   # 9 AM
+    Set Variable [ $workingEnd ; 17 ]    # 5 PM
+End If
 ```
 
-[CodePen](https://codepen.io/luncheon/pen/XWdeXjY)
+## Key Benefits
 
-## Options
+### ✅ **Simple Setup**
+- **One script per time picker** - easy to understand and maintain
+- **No URL parameters** - everything configured via FileMaker script
+- **Self-contained** - script handles both opening and result processing
 
-### Default options
+### ✅ **Reactive State**
+- **Shows current field value** - clocklet reflects existing time
+- **Rich feedback** - returns complete state information as JSON
+- **Automatic callback** - script name passed automatically via `Get(ScriptName)`
 
-Default options can be set as properties of `clocklet.defaultOptions` object.  
-Option names must be described in **camelCase**.
+### ✅ **WebDirect Compatible**
+- **Data URI approach** - no external dependencies
+- **No mixed content issues** - fully contained within FileMaker
+- **Works offline** - no server requirements
 
-```javascript
-clocklet.defaultOptions.zIndex = 9999;
-clocklet.defaultOptions.format = "hh:mm a";
+## Implementation Tips
+
+1. **Object Naming**: Make sure WebViewer and Popover names in your script match the actual layout object names exactly
+2. **Minify HTML**: Minify the HTML file before embedding it in the script to achieve better performance
+
+## JSON State Exchange
+
+The clocklet uses JSON for rich state communication:
+
+**Configuration sent to clocklet:**
+```json
+{
+  "callbackScript": "SetStartTime",
+  "startHour": 9,
+  "endHour": 17,
+  "currentTime": "14:30"
+}
 ```
 
-### Element-specific options
-
-Element-specific options can be specified as semicolon-separated `data-clocklet` attribute value.  
-Option names must be described in **kebab-case**.
-
-```html
-<input data-clocklet="class-name: my-clocklet-style; placement: top;">
+**State returned from clocklet:**
+```json
+{
+  "time": "15:45",
+  "hour": 15,
+  "minute": 45,
+  "workingHours": {"start": 9, "end": 17},
+  "config": {...}
+}
 ```
-
-### Available options
-
-| Name       | Type                           | Default  | Description                                                                                     |
-| ---------- | ------------------------------ | -------- | ----------------------------------------------------------------------------------------------- |
-| class-name | string                         | ""       | Class name to set to the root element of the popup.                                             |
-| format     | string                         | "HH:mm"  | Time format (template) of the input element.<br>Some tokens are replaced with the selected time value.<br>See the [format tokens](#format-tokens) section below. |
-| placement  | "top" \| "bottom"              | "bottom" | Popup placement.                                                                                |
-| alignment  | "left" \| "center" \| "right"  | "left"   | Popup alignment.                                                                                |
-| append-to  | "body" \| "parent"             | "body"   | The parent element into which the popup element will be inserted.                               |
-| z-index    | number \| string               | ""       | Popup z-order.<br>If this value is an empty string, (1 + z-index of the input element) is used. |
-
-### Format tokens
-
-| Token | Range            | Description                                                      |
-| ----- | ---------------- | ---------------------------------------------------------------- |
-| H     | "0" .. "23"      | Hour in 0-based 24-hour notation with no padding.                |
-| HH    | "00" .. "23"     | Hour in 0-based 24-hour notation with zero padding.              |
-| \_H   | " 0" .. "23"     | Hour in 0-based 24-hour notation with space padding.             |
-| h     | "1" .. "12"      | Hour in 1-based 12-hour notation with no padding.                |
-| hh    | "01" .. "12"     | Hour in 1-based 12-hour notation with zero padding.              |
-| \_h   | " 1" .. "12"     | Hour in 1-based 12-hour notation with space padding.             |
-| k     | "1" .. "24"      | Hour in 1-based 24-hour notation with no padding.                |
-| kk    | "01" .. "24"     | Hour in 1-based 24-hour notation with zero padding.              |
-| \_k   | " 1" .. "24"     | Hour in 1-based 24-hour notation with space padding.             |
-| m     | "0" .. "59"      | Minute with no padding.                                          |
-| mm    | "00" .. "59"     | Minute with zero padding.                                        |
-| \_m   | " 0" .. "59"     | Minute with space padding.                                       |
-| a     | "am" \| "pm"     | Post or ante meridiem abbreviation in lowercase without periods. |
-| aa    | "a.m." \| "p.m." | Post or ante meridiem abbreviation in lowercase with periods.    |
-| A     | "AM" \| "PM"     | Post or ante meridiem abbreviation in uppercase without periods. |
-| AA    | "A.M." \| "P.M." | Post or ante meridiem abbreviation in uppercase with periods.    |
-
-
-## Events
-
-Following events are raised on the input element by this library.
-
-| Type             | Cancelable | event.details      | Description                               |
-| ---------------- | ---------- | ------------------ | ----------------------------------------- |
-| clocklet.opening | **true**   | { options: {...} } | Raised before showing the clocklet popup. |
-| clocklet.opened  | false      | { options: {...} } | Raised after showing the clocklet popup.  |
-| clocklet.closing | **true**   | {}                 | Raised before hiding the clocklet popup.  |
-| clocklet.closed  | false      | {}                 | Raised after hiding the clocklet popup.   |
-| input            | false      | undefined          | Raised after changing the input value.    |
-
-For example:
-
-```html
-<input id="my-clocklet" data-clocklet>
-<script>
-  document
-    .getElementById("my-clocklet")
-    .addEventListener("clocklet.opening", function (event) {
-      console.log(event.details.options);
-      if (DO_NOT_NEED_TIMEPICKER) {
-        event.preventDefault();
-      }
-    });
-</script>
-```
-
-
-## API
-
-### `clocklet.defaultOptions`
-
-See [default options](#default-options) section.
-
-### `clocklet.open(inputElement[, options])`
-
-Show the timepicker for the specified `inputElement` with the `options` (optional).
-
-### `clocklet.close()`
-
-Hide the timepicker.
-
-### `clocklet.inline(containerElement[, { input, format }])`
-
-Place the timepicker into the `containerElement`.  
-The optional parameter is the binding setting for the `input` element.
 
 ## License
 
-[WTFPL](http://www.wtfpl.net)
+This project is licensed under the WTFPL. You can find it here: https://www.wtfpl.net
