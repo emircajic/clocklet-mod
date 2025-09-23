@@ -1,14 +1,14 @@
-# FileMaker Clocklet
+## FileMaker Clocklet
 
-This time selector is based on HTML Clocklet by luncheon. You can find it here: [Luncheon Clocklet](https://github.com/luncheon/clocklet).
+This time selector is based on HTML Clocklet by luncheon. You can find it here: [Luncheon Clocklet](https://github.com/luncheon/clocklet). This is a very toned down version of it. For more features, you can check out the original repository.
 
-I chose to modify it to work with FileMaker, as Filemaker doesn't offer a time picker worth of mention. Also, time pickers that I tried are not very intuitive in the first place, as they require you to make multiple clicks or selections, so users find it more convenient to enter time manually, so I tried to create a time picker that is simple and efficient, in that it takes you two clicks, one for hour and the other for minutes to select the desired time. 
+I chose to modify it to work with FileMaker, as Filemaker doesn't offer a time picker worth of mention. Also, time pickers that I tried are not very intuitive, as they require you to make multiple clicks or selections, so users find it more convenient to enter time manually. I tried to create a time picker that is simple and efficient, in that it takes you two clicks, one for hour and the other for minute, to select the desired time. 
 
-In order to achieve this, I modified the clocklet to select only time range which is most standard, so it is possible to select times from 7:00 to 18:59, as those are most common working hours. Furthermore, you are able to set the time range to less than that, if your company, or your client, has different working hours.
+In order to achieve this, I modified the clocklet to select only time range which is most common, so it is possible to select times from 7:00 to 18:59, as those are most common working hours when all stuff happens. Furthermore, you are able to set the selectable time range to less than that, if your company, or your client, has different working hours.
 
 ## Implementation Guide
 
-This approach uses a single script that handles opening the clocklet, configuring it, and processing the result. No URL parameters or multiple scripts needed.
+You need a couple of layout objects and a script that handles opening the clocklet, configuring it, and processing the result. Couldn't make it simpler than that.
 
 ### Step 1: Create Layout Objects
 
@@ -23,7 +23,7 @@ You need to create these objects on your FileMaker layout:
    - Size: Recommended 320x320 pixels
 
 #### WebViewer HTML Content:
-Simply embed the entire clocklet HTML file content as a data URI:
+Embed the entire clocklet HTML file content as a data URI:
 ```
 data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...</html>
 ```
@@ -36,7 +36,6 @@ data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...
 
 #### Script: "SetStartTime"
 ```
-
 # Configuration (edit these values as needed)
 Set Variable [ $workingStart ; 9 ]    # 9 AM
 Set Variable [ $workingEnd ; 17 ]      # 5 PM  
@@ -164,3 +163,6 @@ The clocklet uses JSON for rich state communication:
 }
 ```
 
+## License
+
+This project is licensed under the WTFPL. You can find it here: https://www.wtfpl.net
