@@ -16,7 +16,6 @@ You need to create these objects on your FileMaker layout:
 
 #### Required Layout Objects:
 1. **Popover** → Name it anything (e.g., "StartTimePopover")
-
 2. **WebViewer** → Name it as you like, say: `"StartTimeWebViewer"`
    - **Place** inside the popover
    - **Size**: Recommended 320x320 pixels
