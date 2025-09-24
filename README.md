@@ -17,9 +17,8 @@ You need to create these objects on your FileMaker layout:
 #### Required Layout Objects:
 1. **Popover** → Name it anything (e.g., "StartTimePopover")
 
-2. **WebViewer** → Name it exactly as specified in script: `"StartTimeWebViewer"`
+2. **WebViewer** → Name it as you like, say: `"StartTimeWebViewer"`
    - Place inside the popover
-   - Set Web Address to: `data:text/html,[YOUR_HTML_CONTENT]`
    - Size: Recommended 320x320 pixels
 
 #### WebViewer HTML Content:
@@ -32,14 +31,14 @@ data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...
 
 ### Step 2: Create Your Time Picker Script
 - Open the Script Workspace and create a new script named "SetStartTime".
-- Copy the script steps below into the script (unfortunatelly you can't copy and paste the script steps, as the FileMaker doesn't allow it, you must enter them manually):
+- Copy the script steps below into the script (unfortunatelly you can't copy and paste the script steps, as FileMaker doesn't allow it, you must enter them manually):
 
 #### Script: "SetStartTime"
 ```
 # Configuration (edit these values as needed)
 Set Variable [ $workingStart ; 9 ]    # 9 AM
 Set Variable [ $workingEnd ; 17 ]      # 5 PM  
-Set Variable [ $webViewerName ; "StartTimeWebViewer" ]
+Set Variable [ $webViewerName ; "StartTimeWebViewer" ] # Name of the webviewer object as you put it in the layout
 Set Variable [ $targetField ; "YourTable::StartTime" ] # Note that this is a string noting the field name, not the field itself.
 
 # Check if this is a callback from the clocklet
@@ -95,7 +94,7 @@ Set Variable [ $targetField ; "YourTable::EndTime" ]    # Different field
 # ... rest of script is identical to SetStartTime ...
 ```
 
-Then create corresponding layout objects with the new names. The same "ConfigureClocklet" trigger script works for all instances.
+- Set **OnObjectEnter** trigger of the popover to: `Perform Script ["SetEndTime"]`
 
 ### Step 5: Customization Options
 
@@ -105,11 +104,11 @@ You can make working hours dynamic based on user, role, or any other logic:
 ```
 # In your script configuration section:
 If [ Get(AccountName) = "EarlyShift" ]
-    Set Variable [ $workingStart ; 6 ]   # 6 AM
-    Set Variable [ $workingEnd ; 14 ]    # 2 PM
+    Set Variable [ $workingStart ; 7 ]   # 7 AM
+    Set Variable [ $workingEnd ; 15 ]    # 3 PM
 Else If [ Get(AccountName) = "LateShift" ]  
-    Set Variable [ $workingStart ; 14 ]  # 2 PM
-    Set Variable [ $workingEnd ; 22 ]    # 10 PM
+    Set Variable [ $workingStart ; 10 ]  # 10 AM
+    Set Variable [ $workingEnd ; 18 ]    # 6 PM
 Else
     Set Variable [ $workingStart ; 9 ]   # 9 AM
     Set Variable [ $workingEnd ; 17 ]    # 5 PM
@@ -118,10 +117,11 @@ End If
 
 ## Key Benefits
 
-### ✅ **Simple Setup**
+### ✅ **Simple Setup and Use**
 - **One script per time picker** - easy to understand and maintain
 - **No URL parameters** - everything configured via FileMaker script
 - **Self-contained** - script handles both opening and result processing
+- **Simple to use** - just two clicks to select time
 
 ### ✅ **Reactive State**
 - **Shows current field value** - clocklet reflects existing time
@@ -135,7 +135,7 @@ End If
 
 ## Implementation Tips
 
-1. **Object Naming**: Make sure WebViewer and Popover names in your script match the actual layout object names exactly
+1. **Object Naming**: Make sure WebViewer names in your script match the actual layout object names exactly
 2. **Minify HTML**: Minify the HTML file before embedding it in the script to achieve better performance
 
 ## JSON State Exchange
