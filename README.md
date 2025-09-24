@@ -18,20 +18,13 @@ You need to create these objects on your FileMaker layout:
 1. **Popover** → Name it anything (e.g., "StartTimePopover")
 
 2. **WebViewer** → Name it as you like, say: `"StartTimeWebViewer"`
-   - Place inside the popover
-   - Size: Recommended 320x320 pixels
-
-#### WebViewer HTML Content:
-Embed the entire clocklet HTML file content as a data URI:
-```
-data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...</html>
-```
-
-**No URL parameters needed** - everything is configured via the script!
+   - **Place** inside the popover
+   - **Size**: Recommended 320x320 pixels
+   - **Content**: Embed the entire clocklet HTML file content as a data URI: `data:text/html,<!DOCTYPE html><html>...entire filemaker-clocklet.html content...</html>`
 
 ### Step 2: Create Your Time Picker Script
 - Open the Script Workspace and create a new script named "SetStartTime".
-- Copy the script steps below into the script (unfortunatelly you can't copy and paste the script steps, as FileMaker doesn't allow it, you must enter them manually):
+- Create a script and recreate the script steps below (unfortunatelly you can't copy and paste the script steps, as FileMaker doesn't allow it, you must enter them manually. I could have made it easier for you if I included a FileMaker file, so you just copy/paste the script steps, but right now I don't have time for that. When I do, I will update this README.):
 
 #### Script: "SetStartTime"
 ```
@@ -69,7 +62,6 @@ Perform JavaScript in Web Viewer [
 ]
 
 ```
-
 - Set **OnObjectEnter** trigger of the popover to: `Perform Script ["SetStartTime"]`
 
 ### Step 3: How It Works
