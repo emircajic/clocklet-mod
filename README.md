@@ -106,6 +106,10 @@ Else
 End If
 ```
 
+#### No Popover Required
+
+If you don't want to use popover, you can just place the webviewer directly on the layout and set its **OnLayoutEnter** trigger to: `Perform Script ["SetStartTime"]`.
+
 ## Key Benefits
 
 ### ✅ **Simple Setup and Use**
